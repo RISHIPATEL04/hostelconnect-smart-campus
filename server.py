@@ -34,7 +34,7 @@ def connect() -> sqlite3.Connection:
     if database_url:
         import psycopg
         from psycopg.rows import dict_row
-        pg=psycopg.connect(database_url,timeout=8,sslmode="require",row_factory=dict_row)
+        pg=psycopg.connect(database_url,connect_timeout=8,sslmode="require",row_factory=dict_row)
         pg.prepare_threshold=None
         return PostgresConnection(pg)  # type: ignore[return-value]
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
