@@ -1,0 +1,8 @@
+work/hostelconnect.sqlite3
+work/hostelconnect.sqlite3-shm
+work/hostelconnect.sqlite3-wal
+__pycache__/
+.env
+.env.*
+!.env.example
+.vercel/
