@@ -171,7 +171,7 @@ class Handler(BaseHTTPRequestHandler):
         print(f"[{self.log_date_time_string()}] {fmt % args}")
 
     def send_json(self, data: object, status: int = 200) -> None:
-        raw = json.dumps(data, ensure_ascii=False).encode()
+        raw = json.dumps(data, ensure_ascii=False, default=str).encode()
         self.send_response(status); self.send_header("Content-Type","application/json; charset=utf-8")
         self.send_header("Content-Length",str(len(raw))); self.send_header("Cache-Control","no-store")
         self.end_headers(); self.wfile.write(raw)
