@@ -171,7 +171,9 @@ class Handler(BaseHTTPRequestHandler):
         print(f"[{self.log_date_time_string()}] {fmt % args}")
 
     def send_json(self, data: object, status: int = 200) -> None:
-        raw = json.dumps(data, ensure_ascii=False, default=str).encode()
+        # psycopg returns PostgreSQL timestamp columns as datetime objects;
+        # SQLite returns strings. Serialize both consistently for API clients.
+        raw = json.dumps(data, ensure_ascii=False, default=lambda value: value.isoformat() if isinstance(value, datetime) else str(value)).encode()
         self.send_response(status); self.send_header("Content-Type","application/json; charset=utf-8")
         self.send_header("Content-Length",str(len(raw))); self.send_header("Cache-Control","no-store")
         self.end_headers(); self.wfile.write(raw)
@@ -227,7 +229,7 @@ class Handler(BaseHTTPRequestHandler):
                       JOIN profiles p ON p.id=c.created_by WHERE {where} ORDER BY c.updated_at DESC""",args).fetchall()
                     out=[]
                     for r in rows:
-                        item=dict(r); item["updates"]=[dict(u) for u in db.execute("SELECT u.*,p.full_name AS author FROM complaint_updates u JOIN profiles p ON p.id=u.author_id WHERE complaint_id=? ORDER BY created_at",(r["id"],)).fetchall()]; out.append(item)
+                        item=dict(r); item["updates"]=[dict(u) for u in db.execute("SELECT u.*,p.full_name AS author FROM complaint_updates u JOIN profiles p ON p.id=u.author_id WHERE complaint_id=? ORDER BY created_at,id",(r["id"],)).fetchall()]; out.append(item)
                     staff=[dict(r) for r in db.execute("SELECT id,full_name FROM profiles WHERE role='maintenance' ORDER BY full_name").fetchall()] if user["role"]=="warden" else []
                     self.send_json({"complaints":out,"staff":staff}); return
                 if path=="/api/notifications":
@@ -366,9 +368,16 @@ class Handler(BaseHTTPRequestHandler):
                     assignee=c["assigned_to"]
                 else:raise PermissionError("Students cannot change complaint status")
                 new_status=status or c["status"];new_assignee=assignee if assignee is not None else c["assigned_to"]
-                db.execute("UPDATE complaints SET status=?,assigned_to=?,updated_at=?,resolved_at=? WHERE id=?",(new_status,new_assignee,t,t if new_status=="Resolved" else None,cid))
+                if user["role"]=="warden" and new_status=="In Progress" and not new_assignee:
+                    raise ValueError("Assign maintenance staff before accepting this complaint")
+                resolved_at=t if new_status=="Resolved" and c["status"]!="Resolved" else c["resolved_at"] if new_status=="Resolved" else None
+                db.execute("UPDATE complaints SET status=?,assigned_to=?,updated_at=?,resolved_at=? WHERE id=?",(new_status,new_assignee,t,resolved_at,cid))
                 changed=[]
-                if new_status!=c["status"]:changed.append((new_status,f"Status changed to {new_status}."))
+                if new_status!=c["status"]:
+                    if new_status=="In Progress":message="Complaint accepted. Work is now in progress."
+                    elif new_status=="Resolved":message="Complaint marked completed."
+                    else:message="Complaint moved back to pending."
+                    changed.append((new_status,message))
                 if new_assignee!=c["assigned_to"] and new_assignee:
                     staff=db.execute("SELECT full_name FROM profiles WHERE id=?",(new_assignee,)).fetchone();changed.append((None,f"Assigned to {staff['full_name']}."))
                 for st,msg in changed:
