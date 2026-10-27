@@ -40,7 +40,7 @@ Run `python server.py --host 0.0.0.0`, find this computer's local IPv4 address, 
 - Role-aware sign-in and student registration (capped at 15 total accounts): students see their own complaints, maintenance see assigned work, and wardens manage hostel complaints and notices.
 - Student dashboard tiles, dedicated complaint submission and confirmation screens, complaint history, notice details, and profile/edit/password screens.
 - Notice board: search, category and urgency filters, sorting, full notice details, per-user pin/read state, warden publishing, expiry, and archiving.
-- Complaint flow: submit category, room and description, optionally attach an image; wardens assign staff and change status; assigned maintenance staff update status and add notes; students can follow their own complaint timeline.
+- Complaint flow: submit category, room and description, optionally attach an image; wardens assign staff and accept work; assigned maintenance staff add progress notes and mark work completed; students can see the registration, acceptance, staff assignment, updates and completion timestamps in their complaint timeline.
 - In-app alerts for new notices, new complaints and complaint changes.
 - SQLite persistence shared by browser sessions that use this server.
 
