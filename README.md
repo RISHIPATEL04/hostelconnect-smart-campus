@@ -58,3 +58,4 @@ The same-origin JSON API is served by `server.py`:
 ## Hosting
 
 The project includes a Vercel Python API configuration and a Supabase PostgreSQL schema. See [DEPLOYMENT.md](DEPLOYMENT.md) for the setup steps. The hosted database is separate from the local SQLite demo database.
+.......................
