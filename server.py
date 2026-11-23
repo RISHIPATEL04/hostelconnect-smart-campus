@@ -215,9 +215,15 @@ class Handler(BaseHTTPRequestHandler):
                       p.room_number AS student_room FROM complaints c
                       JOIN profiles s ON s.id=c.created_by LEFT JOIN profiles m ON m.id=c.assigned_to
                       JOIN profiles p ON p.id=c.created_by WHERE {where} ORDER BY c.updated_at DESC""",args).fetchall()
+                    updates_by_complaint={r["id"]:[] for r in rows}
+                    if rows:
+                        ids=tuple(updates_by_complaint)
+                        placeholders=",".join("?" for _ in ids)
+                        updates=db.execute(f"SELECT u.*,p.full_name AS author FROM complaint_updates u JOIN profiles p ON p.id=u.author_id WHERE u.complaint_id IN ({placeholders}) ORDER BY u.created_at,u.id",ids).fetchall()
+                        for update in updates:updates_by_complaint[update["complaint_id"]].append(dict(update))
                     out=[]
                     for r in rows:
-                        item=dict(r); item["updates"]=[dict(u) for u in db.execute("SELECT u.*,p.full_name AS author FROM complaint_updates u JOIN profiles p ON p.id=u.author_id WHERE complaint_id=? ORDER BY created_at,id",(r["id"],)).fetchall()]; out.append(item)
+                        item=dict(r); item["updates"]=updates_by_complaint[r["id"]]; out.append(item)
                     staff=[dict(r) for r in db.execute("SELECT id,full_name FROM profiles WHERE role='maintenance' ORDER BY full_name").fetchall()] if user["role"]=="warden" else []
                     self.send_json({"complaints":out,"staff":staff}); return
                 if path=="/api/notifications":
@@ -368,11 +374,14 @@ class Handler(BaseHTTPRequestHandler):
                     changed.append((new_status,message))
                 if new_assignee!=c["assigned_to"] and new_assignee:
                     staff=db.execute("SELECT full_name FROM profiles WHERE id=?",(new_assignee,)).fetchone();changed.append((None,f"Assigned to {staff['full_name']}."))
+                activity=[]
                 for st,msg in changed:
-                    db.execute("INSERT INTO complaint_updates VALUES(?,?,?,?,?,?)",("u-"+secrets.token_hex(6),cid,user["id"],st,msg,t))
+                    update_id="u-"+secrets.token_hex(6)
+                    db.execute("INSERT INTO complaint_updates VALUES(?,?,?,?,?,?)",(update_id,cid,user["id"],st,msg,t))
+                    activity.append({"id":update_id,"complaint_id":cid,"author_id":user["id"],"author":user["full_name"],"status":st,"message":msg,"created_at":t})
                 for rid in {c["created_by"],new_assignee}:
                     if rid and rid!=user["id"] and changed:db.execute("INSERT INTO notifications VALUES(?,?,?,?,?,?,?,NULL)",("nt-"+secrets.token_hex(8),rid,"Complaint updated",changed[-1][1],cid,None,t))
-                db.commit();self.send_json({"ok":True});return
+                db.commit();self.send_json({"ok":True,"status":new_status,"assigned_to":new_assignee,"updated_at":t,"resolved_at":resolved_at,"updates":activity});return
             raise ValueError("API endpoint not found")
         except PermissionError as e:self.send_json({"error":str(e)},403)
         except (ValueError,json.JSONDecodeError) as e:self.send_json({"error":str(e)},400)
