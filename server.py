@@ -145,18 +145,6 @@ def seed(db: sqlite3.Connection) -> None:
         for nid,title,body,category,priority,author,days in items:
             created = datetime.fromtimestamp(time.time()-days*86400, timezone.utc).isoformat(timespec="seconds")
             db.execute("INSERT INTO notices VALUES(?,?,?,?,?,?,NULL,NULL,?)",(nid,author,title,body,category,priority,created))
-    if db.execute("SELECT COUNT(*) AS count FROM complaints").fetchone()["count"] == 0:
-        examples = [
-          ("c-ac","s1","Electrical","B-204","Air conditioner is not cooling properly.","m1","In Progress"),
-          ("c-tap","s2","Plumbing","A-108","The bathroom tap is leaking continuously.","m2","Pending"),
-          ("c-wifi","s3","Wi-Fi","B-311","Wi-Fi signal drops frequently in this room.","m3","Resolved"),
-        ]
-        for cid,student,cat,room,desc,staff,status in examples:
-            t=now(); resolved=t if status=="Resolved" else None
-            db.execute("INSERT INTO complaints VALUES(?,?,?,?,?,NULL,NULL,?,?,?,?,?)",(cid,student,cat,room,desc,status,staff,t,t,resolved))
-            db.execute("INSERT INTO complaint_updates VALUES(?,?,?,?,?,?)",("u-"+cid,cid,student,"Pending","Complaint submitted.",t))
-            if status != "Pending":
-                db.execute("INSERT INTO complaint_updates VALUES(?,?,?,?,?,?)",("u-"+cid+"-status",cid,staff,status,"Maintenance team updated the complaint.",t))
     db.commit()
 
 
@@ -410,3 +398,4 @@ def main() -> None:
 
 
 if __name__=="__main__":main()
+
